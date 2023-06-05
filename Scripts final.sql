@@ -88,13 +88,35 @@ ORDER BY install_earnings DESC
 
 
 --POTENTIAL APPS ON BOTH PLATFORMS
-SELECT name, install_count, p.review_count, p.price, p.rating
+SELECT name, rating, price, review_count::integer
 FROM app_store_apps AS a
-INNER JOIN play_store_apps AS p
-USING (name)
-ORDER BY install_count;
+WHERE a.rating > 4.5
+	AND a. price >= 0.99
+	AND a.review_count::integer > 100000
+ORDER BY price DESC NULLS LAST;
+
+SELECT name, rating, price::money::numeric, install_count::money::numeric
+FROM play_store_apps AS p
+WHERE p.rating > 4.5
+	AND p. price::money::numeric >= 0.99
+	AND p.install_count::money::numeric > 500000
+ORDER BY price DESC NULLS LAST
+
+
 
 --TOTAL POTENTIAL EARNINGS OVER LIFE OF APP--
 SELECT install_count::MONEY::NUMERIC*price::MONEY::NUMERIC AS install_earnings, name
 FROM play_store_apps
 ORDER BY install_earnings DESC
+
+WITH parts_of_profitability AS (SELECT DISTINCT (name),
+								CASE WHEN price::money::numeric BETWEEN 0 AND 2.5 THEN 25000
+									 ELSE price::MONEY::numeric *10000 END AS rights_cost,
+									(rating / 0.25)*6+12*1000 AS cost_of_lifespan,
+									(rating / 0.25)*6+12*5000 AS earnings_of_lifespan,
+									 review_count::MONEY::NUMERIC*price::MONEY::NUMERIC AS install_earnings
+								FROM app_store_apps)
+SELECT((earnings_of_lifespan+install_earnings)-(rights_cost+cost_of_lifespan))::money AS profitability, name, rights_cost,  cost_of_lifespan, earnings_of_lifespan, install_earnings
+FROM parts_of_profitability
+ORDER BY profitability DESC NULLS LAST	
+LIMIT 11;
